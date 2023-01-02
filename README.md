@@ -3,6 +3,9 @@
 ## Resources
 https://www.oreilly.co.jp/books/9784873119977/
 
+## Repository
+https://github.com/YoshikiShibata/proglog
+
 ## Errata
 https://yoshikishibata.github.io/myhomepage/errata/distributed_services_in_go.html
 

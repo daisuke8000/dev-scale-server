@@ -33,7 +33,7 @@ func testAppend(t *testing.T, s *store) {
 	for i := uint64(1); i < 4; i++ {
 		n, pos, err := s.Append(write)
 		require.NoError(t, err)
-		require.Equal(t, pos+n, width*1)
+		require.Equal(t, pos+n, width*i)
 	}
 }
 
@@ -54,7 +54,7 @@ func testReadAt(t *testing.T, s *store) {
 		b := make([]byte, lenWidth)
 		n, err := s.ReadAt(b, off)
 		require.NoError(t, err)
-		require.Equal(t, write, n)
+		require.Equal(t, lenWidth, n)
 		off += int64(n)
 
 		size := enc.Uint64(b)
