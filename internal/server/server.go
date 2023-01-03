@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	api "dev-scale-server/api/v1"
+	"google.golang.org/grpc"
 )
 
 type Config struct {
@@ -83,6 +84,16 @@ func (s *grpcServer) ConsumeStream(
 }
 
 type CommitLog interface {
-	Append(record *api.Record) (uint64, error)
+	Append(*api.Record) (uint64, error)
 	Read(uint64) (*api.Record, error)
+}
+
+func NewGRPCServer(config *Config) (*grpc.Server, error) {
+	gsrv := grpc.NewServer()
+	srv, err := newgrpcServer(config)
+	if err != nil {
+		return nil, err
+	}
+	api.RegisterLogServer(gsrv, srv)
+	return gsrv, nil
 }
