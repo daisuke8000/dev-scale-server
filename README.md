@@ -13,3 +13,4 @@ https://yoshikishibata.github.io/myhomepage/errata/distributed_services_in_go.ht
 1. json based server for http log service
 2. structured data by protocol buffers
 3. Add log Packages & test-code
+4. request handling by gRPC
