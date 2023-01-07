@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	api "dev-scale-server/api/v1"
+	"dev-scale-server/internal/config"
 	"dev-scale-server/internal/log"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 	"net"
 	"os"
@@ -36,14 +38,29 @@ func setupTest(t *testing.T, fn func(*Config)) (
 ) {
 	t.Helper()
 
-	l, err := net.Listen("tcp", ":0")
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
-	clientOptions := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials())}
-
-	cc, err := grpc.Dial(l.Addr().String(), clientOptions...)
+	clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
+		CAFile: config.CAFile,
+	})
 	require.NoError(t, err)
+
+	clientCreds := credentials.NewTLS(clientTLSConfig)
+	cc, err := grpc.Dial(
+		l.Addr().String(),
+		grpc.WithTransportCredentials(clientCreds),
+	)
+	require.NoError(t, err)
+
+	serverTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
+		CertFile:      config.ServerCertFile,
+		KeyFile:       config.ServerKeyFile,
+		CAFile:        config.CAFile,
+		ServerAddress: l.Addr().String(),
+	})
+	require.NoError(t, err)
+	serverCreds := credentials.NewTLS(serverTLSConfig)
 
 	dir, err := os.MkdirTemp("", "server-test")
 	require.NoError(t, err)
@@ -57,7 +74,7 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	if fn != nil {
 		fn(cfg)
 	}
-	server, err := NewGRPCServer(cfg)
+	server, err := NewGRPCServer(cfg, grpc.Creds(serverCreds))
 	require.NoError(t, err)
 
 	go func() {
@@ -70,7 +87,6 @@ func setupTest(t *testing.T, fn func(*Config)) (
 		cc.Close()
 		server.Stop()
 		l.Close()
-		clog.Remove()
 	}
 }
 
@@ -114,7 +130,7 @@ func testConsumePastBoundary(t *testing.T, client api.LogClient, config *Config,
 		t.Fatal("consume not nil")
 	}
 	got := status.Code(err)
-	want := status.Code(api.ErrOffsetOutOfRange{}.GRPCStatus().Err())
+	want := codes.OutOfRange
 	if got != want {
 		t.Fatalf("got err: %v, want: %v", got, want)
 	}

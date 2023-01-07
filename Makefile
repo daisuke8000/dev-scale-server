@@ -1,4 +1,4 @@
-CONFIG_PATH=${HOME}/.proglog/
+CONFIG_PATH=${PWD}/.proglog/
 
 .PHONY: init
 init:
@@ -14,7 +14,16 @@ gencert:
 		-ca-key=ca-key.pem \
 		-config=test/ca-config.json \
 		-profile=server \
-		test/server-csr.json | cfssllson -bare server
+		test/server-csr.json | cfssljson -bare server
+
+	cfssl gencert \
+		-ca=ca.pem \
+		-ca-key=ca-key.pem \
+		-config=test/ca-config.json \
+		-profile=client \
+		-cn="root" \
+		test/client-csr.json | cfssljson -bare root-client
+
 	mv *.pem *.csr ${CONFIG_PATH}
 
 .PHONY: test
