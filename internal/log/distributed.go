@@ -1,9 +1,12 @@
 package log
 
 import (
+	"bytes"
 	"crypto/tls"
+	api "dev-scale-server/api/v1"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
+	"google.golang.org/protobuf/proto"
 	"net"
 	"os"
 	"path/filepath"
@@ -125,6 +128,49 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 	}
 	return err
 }
+
+func (l *DistributedLog) Append(record *api.Record) (uint64, error) {
+	res, err := l.apply(
+		AppendRequestType,
+		&api.ProduceRequest{Record: record},
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.(*api.ProduceResponse).Offset, nil
+}
+
+func (l *DistributedLog) apply(reqType, RequestType, req proto.Message) (interface{}, error) {
+	var buf bytes.Buffer
+	_, err := buf.Write([]byte{byte(reqType)})
+	if err != nil {
+		return nil, err
+	}
+	b, err := proto.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	timeout := 10 * time.Second
+	future := l.raft.Apply(buf.Bytes(), timeout)
+	if future.Error() != nil {
+		return nil, err
+	}
+	res := future.Response()
+	if err, ok := res.(error); ok {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (l *DistributedLog) Read(offset uint64) (*api.Record, error) {
+	return l.log.Read(offset)
+}
+
+var _ raft.FSM = (*fsm)(nil)
 
 type fsm struct {
 	log *Log
